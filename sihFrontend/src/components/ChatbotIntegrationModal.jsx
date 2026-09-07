@@ -364,7 +364,7 @@ export default function ChatbotIntegrationModal({ isOpen, onClose }) {
             <div className="flex items-center justify-between px-1 pt-2 text-[10px] text-ivory-dim font-semibold">
               <span className="flex items-center space-x-1">
                 <ShieldCheck className="w-3 h-3 text-saffron" />
-                <span>Verified Bureau of Indian Standards Context</span>
+                {/* <span>Verified Bureau of Indian Standards Context</span> */}
               </span>
               <span>Jagruk Swadesh Assistant</span>
             </div>

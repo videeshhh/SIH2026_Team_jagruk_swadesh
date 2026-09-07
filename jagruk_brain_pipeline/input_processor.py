@@ -7,7 +7,7 @@ from openai import OpenAI
 # 1. INITIALIZE GROQ / OPENAI COMPATIBLE CLIENT
 # ============================================================
 
-load_dotenv()
+load_dotenv(os.path.join(os.path.dirname(__file__), ".env"))
 
 api_key = os.getenv("API_KEY")
 
