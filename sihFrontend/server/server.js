@@ -15,13 +15,9 @@ app.use(cors({
 }));
 app.use(express.json());
 
-// ── Auth routes (MongoDB) ──────────────────────────────────────────────────────
 app.get('/api/health', (req, res) => res.json({ ok: true }));
 app.use('/api/auth', authRoutes);
 
-// ── RAG proxy → FastAPI ────────────────────────────────────────────────────────
-// Forwards POST /api/query to the Python FastAPI RAG engine on FASTAPI_PORT.
-// If FastAPI is not running the user gets a clean error message instead of a crash.
 app.post('/api/query', (req, res) => {
   const FASTAPI_HOST = process.env.FASTAPI_HOST || 'localhost';
   const FASTAPI_PORT = parseInt(process.env.FASTAPI_PORT || '8000', 10);
@@ -62,7 +58,81 @@ app.post('/api/query', (req, res) => {
   proxyReq.end();
 });
 
-// ── Global error handler ───────────────────────────────────────────────────────
+
+app.post('/api/transcribe', (req, res) => {
+  const FASTAPI_HOST = process.env.FASTAPI_HOST || 'localhost';
+  const FASTAPI_PORT = parseInt(process.env.FASTAPI_PORT || '8000', 10);
+
+  const options = {
+    hostname: FASTAPI_HOST,
+    port: FASTAPI_PORT,
+    path: '/transcribe',
+    method: 'POST',
+    headers: {
+    
+      'Content-Type': req.headers['content-type'],
+  
+      ...(req.headers['content-length'] && {
+        'Content-Length': req.headers['content-length'],
+      }),
+    },
+  };
+
+  const proxyReq = http.request(options, (proxyRes) => {
+    let data = '';
+    proxyRes.on('data', (chunk) => { data += chunk; });
+    proxyRes.on('end', () => {
+      try {
+        res.status(proxyRes.statusCode).json(JSON.parse(data));
+      } catch {
+        res.status(500).json({ error: 'Invalid response from transcription service.' });
+      }
+    });
+  });
+
+  proxyReq.on('error', (err) => {
+    console.error('[Transcribe Proxy] FastAPI unreachable:', err.message);
+    res.status(502).json({
+      error: 'The AI transcription engine is currently offline. Please ensure the FastAPI server is running on port ' + FASTAPI_PORT + '.',
+    });
+  });
+
+  req.pipe(proxyReq);
+});
+
+app.post('/api/speak', (req, res) => {
+  const FASTAPI_HOST = process.env.FASTAPI_HOST || 'localhost';
+  const FASTAPI_PORT = parseInt(process.env.FASTAPI_PORT || '8000', 10);
+
+  const body = JSON.stringify(req.body);
+
+  const options = {
+    hostname: FASTAPI_HOST,
+    port: FASTAPI_PORT,
+    path: '/speak',
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Content-Length': Buffer.byteLength(body),
+    },
+  };
+
+  const proxyReq = http.request(options, (proxyRes) => {
+    res.writeHead(proxyRes.statusCode, proxyRes.headers);
+    proxyRes.pipe(res);
+  });
+
+  proxyReq.on('error', (err) => {
+    console.error('[Speak Proxy] FastAPI unreachable:', err.message);
+    res.status(502).json({
+      error: 'The AI speech engine is currently offline.',
+    });
+  });
+
+  proxyReq.write(body);
+  proxyReq.end();
+});
+
 app.use((err, req, res, next) => {
   console.error(err);
   res.status(500).json({ message: 'Unexpected server error' });

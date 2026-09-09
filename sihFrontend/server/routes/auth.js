@@ -12,7 +12,6 @@ function signToken(userId) {
   });
 }
 
-// POST /api/auth/signup
 router.post('/signup', async (req, res) => {
   try {
     const { fullName, email, password } = req.body;
