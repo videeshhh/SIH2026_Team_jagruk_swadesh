@@ -11,7 +11,7 @@ export default function SectionHeading({
     <div className={`space-y-4 max-w-3xl ${center ? 'mx-auto text-center' : ''} ${className}`}>
       {tag && (
         <div className={`inline-flex items-center space-x-2 px-3.5 py-1.5 rounded-full bg-forest-deep/90 border border-white/15 text-ivory-dim text-xs font-semibold uppercase tracking-wider ${center ? 'mx-auto' : ''}`}>
-          <span className="text-emerald-400 font-bold">+</span>
+          {/* <span className="text-emerald-400 font-bold">+</span> */}
           <span>{tag}</span>
         </div>
       )}

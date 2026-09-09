@@ -135,7 +135,7 @@ export default function About({ onOpenChatbotModal }) {
           
           <div className="text-center max-w-4xl mx-auto space-y-5 px-6 sm:px-8 py-7 sm:py-9 rounded-3xl bg-forest-dark/90 backdrop-blur-md border border-white/12 shadow-xl">
             <div className="inline-flex items-center space-x-2 px-3.5 py-1.5 rounded-full bg-forest-deep/90 border border-white/15 text-ivory-dim text-xs font-medium tracking-wide">
-              <span className="text-emerald-400 font-bold">+</span>
+              {/* <span className="text-emerald-400 font-bold">+</span> */}
               <span className="uppercase tracking-widest text-[11px] font-semibold text-ivory-muted">
                 OUR MISSION & PURPOSE
               </span>

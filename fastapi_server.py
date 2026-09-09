@@ -5,8 +5,13 @@ from jagruk_brain_pipeline.main import app as pipeline_app
 from openai import OpenAI
 import os
 from dotenv import load_dotenv
-
-load_dotenv()
+load_dotenv(
+    os.path.join(
+        os.path.dirname(__file__),
+        "jagruk_brain_pipeline",
+        ".env"
+    )
+)
 
 server = FastAPI()
 
@@ -83,25 +88,22 @@ class SpeakRequest(BaseModel):
 @server.post("/speak")
 def speak_text(request: SpeakRequest):
     """
-    Accepts text, uses the patched local TTS to generate speech, and streams the WAV audio back.
+    Accepts text, uses the patched local TTS to generate speech,
+    and streams the MP3 audio back.
     """
     if not request.text or not request.text.strip():
         raise HTTPException(status_code=400, detail="Text is required.")
-        
+
     try:
-        # We use the patched client from voice_agent which intercepts this 
-        # and runs the edge-tts offline engine instead of making an API call.
         tts_response = voice_client.audio.speech.create(
             model="canopylabs/orpheus-v1-english",
             voice="troy",
             input=request.text.strip(),
             response_format="wav"
         )
-        
-        # Depending on how the client patches TTS, we extract the bytes
-        # Standard OpenAI client returns an HttpxBinaryResponseContent with .content
-        # Patched TTS Response has .read()
+
         audio_data = None
+
         if hasattr(tts_response, "read"):
             audio_data = tts_response.read()
         elif hasattr(tts_response, "content"):
@@ -109,10 +111,14 @@ def speak_text(request: SpeakRequest):
         else:
             raise ValueError("Unrecognized TTS response format")
 
+        if not audio_data:
+            raise ValueError("TTS returned empty audio")
+
         return StreamingResponse(
             io.BytesIO(audio_data),
-            media_type="audio/wav"
+            media_type="audio/mpeg"
         )
+
     except Exception as exc:
         raise HTTPException(
             status_code=502,
