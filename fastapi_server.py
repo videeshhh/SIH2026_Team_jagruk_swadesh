@@ -42,17 +42,14 @@ async def transcribe_audio(audio: UploadFile = File(...)):
     Accept an audio file (WebM / WAV / MP3 / OGG) from the browser,
     send it to Groq Whisper for speech-to-text, and return the transcript.
     """
-    # Validate that a file was actually sent
+
     if not audio or not audio.filename:
         raise HTTPException(status_code=400, detail="No audio file provided.")
 
-    # Read the raw bytes
     audio_bytes = await audio.read()
     if len(audio_bytes) == 0:
         raise HTTPException(status_code=400, detail="Audio file is empty.")
-
-    # Groq Whisper expects a file-like tuple: (filename, bytes, content_type)
-    # The browser's MediaRecorder typically produces audio/webm
+    
     content_type = audio.content_type or "audio/webm"
     filename = audio.filename or "recording.webm"
 
@@ -61,7 +58,7 @@ async def transcribe_audio(audio: UploadFile = File(...)):
             model="whisper-large-v3",
             file=(filename, audio_bytes, content_type),
             response_format="text",
-            language="en",           # Accepts Hindi/English mixed — Whisper handles it
+            language="en",           
         )
         # Groq returns a plain string when response_format="text"
         transcript_text = transcription if isinstance(transcription, str) else transcription.text
@@ -74,44 +71,69 @@ async def transcribe_audio(audio: UploadFile = File(...)):
 
 from fastapi.responses import StreamingResponse
 import io
-
-from jagruk_brain_pipeline.voice_agent import client as voice_client
+import re
+import edge_tts
 
 class SpeakRequest(BaseModel):
     text: str
 
+
+def _detect_indic_voice(text: str) -> str:
+    """Pick the best Edge TTS voice based on the script used in `text`."""
+    checks = [
+        (r'[\u0980-\u09FF]', 'bn-IN-TanishaaNeural'),   # Bengali
+        (r'[\u0900-\u097F]', 'hi-IN-SwaraNeural'),       # Hindi / Devanagari
+        (r'[\u0A00-\u0A7F]', 'pa-IN-OjasNeural'),        # Punjabi
+        (r'[\u0B80-\u0BFF]', 'ta-IN-PallaviNeural'),     # Tamil
+        (r'[\u0C00-\u0C7F]', 'te-IN-ShrutiNeural'),      # Telugu
+        (r'[\u0A80-\u0AFF]', 'gu-IN-DhwaniNeural'),      # Gujarati
+        (r'[\u0D00-\u0D7F]', 'ml-IN-SobhanaNeural'),     # Malayalam
+        (r'[\u0C80-\u0CFF]', 'kn-IN-SapnaNeural'),       # Kannada
+        (r'[\u0600-\u06FF]', 'ur-IN-GulNeural'),         # Urdu
+    ]
+    for pattern, voice in checks:
+        if re.search(pattern, text):
+            return voice
+    return 'en-IN-NeerjaNeural'
+
+
+async def _generate_tts_audio_stream(text: str, voice: str):
+    """Use edge_tts to synthesize speech and yield raw MP3 bytes as they are generated."""
+    communicate = edge_tts.Communicate(text, voice)
+    async for chunk in communicate.stream():
+        if chunk.get("type") == "audio":
+            yield chunk["data"]
+
+
+@server.get("/speak")
 @server.post("/speak")
-def speak_text(request: SpeakRequest):
+async def speak_text(text: str = None, request: SpeakRequest = None):
     """
-    Accepts text, uses the patched local TTS to generate speech, and streams the WAV audio back.
+    Accepts text, uses Edge TTS to generate speech, and streams the MP3 audio.
+    Supports both GET (with ?text=...) and POST (with JSON body) for flexibility.
     """
-    if not request.text or not request.text.strip():
+    # Extract text from either GET query or POST body
+    input_text = text if text is not None else (request.text if request else None)
+    
+    if not input_text or not input_text.strip():
         raise HTTPException(status_code=400, detail="Text is required.")
-        
+
     try:
-        # We use the patched client from voice_agent which intercepts this 
-        # and runs the edge-tts offline engine instead of making an API call.
-        tts_response = voice_client.audio.speech.create(
-            model="canopylabs/orpheus-v1-english",
-            voice="troy",
-            input=request.text.strip(),
-            response_format="wav"
-        )
-        
-        # Depending on how the client patches TTS, we extract the bytes
-        # Standard OpenAI client returns an HttpxBinaryResponseContent with .content
-        # Patched TTS Response has .read()
-        audio_data = None
-        if hasattr(tts_response, "read"):
-            audio_data = tts_response.read()
-        elif hasattr(tts_response, "content"):
-            audio_data = tts_response.content
-        else:
-            raise ValueError("Unrecognized TTS response format")
+        # Clean the text: strip markdown symbols and normalize punctuation
+        clean_text = re.sub(r'[*#_`>-]', '', str(input_text)).strip()
+        clean_text = clean_text.replace('।', '.')
+        if not clean_text:
+            clean_text = 'Yes'
+
+        voice = _detect_indic_voice(clean_text)
 
         return StreamingResponse(
-            io.BytesIO(audio_data),
-            media_type="audio/wav"
+            _generate_tts_audio_stream(clean_text, voice),
+            media_type="audio/mpeg",
+            headers={
+                "Cache-Control": "no-cache",
+                "Connection": "keep-alive"
+            }
         )
     except Exception as exc:
         raise HTTPException(
