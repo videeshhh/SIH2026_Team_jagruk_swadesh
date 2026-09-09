@@ -1,4 +1,1338 @@
-hello guys
-hi
-frontend 
-hellow from readme
+#  Jagruk Brain --- BIS Conversational Knowledge & Compliance Assistant
+
+> **SIH 2026 --- Team Jagruk Swadesh**
+
+Jagruk Brain is a multilingual, voice-enabled, Retrieval-Augmented
+Generation (RAG) system designed to make Bureau of Indian Standards
+(BIS) knowledge easier to search, understand and interact with through a
+modern web application.
+
+## Table of Contents
+
+-   [Overview](#overview)
+-   [Key Features](#key-features)
+-   [Architecture](#architecture)
+-   [End-to-End Workflow](#end-to-end-workflow)
+-   [Data Collection Pipeline](#data-collection-pipeline)
+-   [RAG Pipeline](#rag-pipeline)
+-   [Query Understanding](#query-understanding)
+-   [LangGraph Pipeline](#langgraph-pipeline)
+-   [Voice Architecture](#voice-architecture)
+-   [Web Application](#web-application)
+-   [Authentication Backend](#authentication-backend)
+-   [Technology Stack](#technology-stack)
+-   [Repository Structure](#repository-structure)
+-   [Getting Started](#getting-started)
+-   [Running the Full Application](#running-the-full-application)
+-   [API Reference](#api-reference)
+-   [Testing](#testing)
+-   [Troubleshooting](#troubleshooting)
+-   [Security](#security)
+-   [Future Scope](#future-scope)
+-   [Project Summary](#project-summary)
+
+------------------------------------------------------------------------
+
+## Overview
+
+BIS information is distributed across standards, product information,
+product manuals, regulatory/QCO information, testing information,
+laboratory records, licences and other structured and unstructured
+sources.
+
+Jagruk Brain provides a conversational interface over this knowledge.
+
+Instead of requiring users to manually search through large technical
+documents, the system:
+
+1.  Accepts a text or voice query.
+2.  Understands the query and its language.
+3.  Identifies the relevant BIS product/context when possible.
+4.  Converts the query into a retrieval-oriented query.
+5.  Retrieves relevant BIS knowledge from Qdrant.
+6.  Uses retrieved evidence as context for response generation.
+7.  Returns the answer in the user's language.
+8.  Supports voice output through the TTS layer.
+
+The repository contains the data-collection pipeline, RAG/indexing
+layer, LangGraph conversational pipeline, FastAPI AI service, Express
+authentication/API service and React/Vite frontend.
+
+------------------------------------------------------------------------
+
+## Key Features
+
+### 🧠 BIS-focused RAG
+
+The system uses Retrieval-Augmented Generation rather than relying only
+on the LLM's pretrained knowledge.
+
+The RAG layer can work with:
+
+-   BIS product information
+-   Indian Standards
+-   Product manuals
+-   Testing information
+-   Laboratory records
+-   Licence records
+-   QCO/regulatory information
+-   Structured JSON records
+-   PDF documents
+
+### 🔎 Intelligent Query Understanding
+
+The query-processing layer can determine or generate:
+
+-   Detected language
+-   Product
+-   Intent
+-   Standard/context
+-   Location when relevant
+-   Search terms
+-   Retrieval-oriented English query
+-   Whether a question requires exhaustive/count/list processing
+
+### 🌐 Multilingual Interaction
+
+The query-understanding layer is designed to understand English,
+Indian-language queries, Romanized Indian-language queries and
+mixed-language/Hinglish-style queries.
+
+Retrieval language and final-response language are treated separately.
+
+### 🎙️ Voice Input
+
+The FastAPI service exposes `/transcribe`. Browser-recorded audio can be
+sent to Groq Whisper for speech-to-text conversion.
+
+### 🔊 Voice Output
+
+The FastAPI service exposes `/speak`. The voice agent patches the
+OpenAI-compatible speech client and routes TTS through `edge-tts`, with
+language-aware voice selection and fallback handling.
+
+### 🧩 LangGraph Orchestration
+
+The conversational pipeline is organized with LangGraph:
+
+``` text
+User Input
+   ↓
+Text / Voice Handling
+   ↓
+Query Understanding
+   ↓
+RAG Retrieval
+   ↓
+Response Generation
+   ↓
+Text / Voice Output
+```
+
+### 🗃️ Product-aware Retrieval
+
+The query processor explicitly supports these product contexts:
+
+1.  Domestic Gas Stove and Built-in Hob for Use with LPG
+2.  Domestic Pressure Cooker
+3.  Electric Immersion Water Heaters
+4.  Electric Iron
+5.  Ordinary Portland Cement
+6.  Packaged Drinking Water
+7.  Protective Helmets for Motorcycle Riders
+8.  Refrigerator / Combined Refrigerator and Water-pack Freezer
+9.  Room Air Conditioners
+10. Safety Glass
+11. Safety of Electric Toys
+12. Polyamide Tyre Cord Fabric for Automotive Tyres
+13. Unplasticized PVC Pipes for Potable Water Supplies
+14. Valve for Compressed Gas Cylinders excluding LPG Cylinders
+
+The query layer also contains safeguards against loosely mapping
+unrelated terms to these products.
+
+------------------------------------------------------------------------
+
+## Architecture
+
+``` text
+                         ┌──────────────────────┐
+                         │        USER          │
+                         └──────────┬───────────┘
+                                    │
+                         ┌──────────┴───────────┐
+                         │                      │
+                       TEXT                   VOICE
+                         │                      │
+                         │                 Speech-to-Text
+                         │                   Whisper
+                         │                      │
+                         └──────────┬───────────┘
+                                    │
+                                    ▼
+                        ┌────────────────────────┐
+                        │  QUERY UNDERSTANDING   │
+                        │                        │
+                        │ Language / Product     │
+                        │ Intent / Search Terms  │
+                        │ Retrieval Query        │
+                        └────────────┬───────────┘
+                                     │
+                                     ▼
+                        ┌────────────────────────┐
+                        │       RAG LAYER        │
+                        │                        │
+                        │ SentenceTransformers   │
+                        │          ↓             │
+                        │        Qdrant           │
+                        │          ↓             │
+                        │    BIS Evidence         │
+                        └────────────┬───────────┘
+                                     │
+                                     ▼
+                        ┌────────────────────────┐
+                        │       LLM LAYER        │
+                        │         Groq           │
+                        │      GPT-OSS-120B      │
+                        └────────────┬───────────┘
+                                     │
+                                     ▼
+                         ┌───────────┴──────────┐
+                         │                      │
+                       TEXT                   VOICE
+                         │                      │
+                         │                     TTS
+                         │                      │
+                         └──────────┬──────────┘
+                                    ▼
+                                  USER
+```
+
+------------------------------------------------------------------------
+
+## End-to-End Workflow
+
+``` text
+User
+ ↓
+Text / Voice
+ ↓
+Speech-to-Text (if voice)
+ ↓
+Query Filtering
+ ↓
+Language Detection
+ ↓
+Product Identification
+ ↓
+Intent Detection
+ ↓
+Retrieval Query Generation
+ ↓
+Qdrant Search
+ ↓
+Relevant BIS Context
+ ↓
+Groq LLM
+ ↓
+Final Answer
+ ↓
+Text / TTS Voice
+```
+
+------------------------------------------------------------------------
+
+# Data Collection Pipeline
+
+The repository contains a dedicated `data_collection_pipeline`
+directory.
+
+Its major areas are:
+
+``` text
+data_collection_pipeline/
+├── mapping/
+├── qco/
+├── regulatory/
+├── scraper/
+├── download_documents.py
+├── organize_products.py
+└── requirements.txt
+```
+
+### Scraper
+
+The scraper package contains modules for:
+
+-   API access
+-   Browser-assisted collection
+-   Collection orchestration
+-   Downloading
+-   Storage
+-   Organization
+
+### Mapping
+
+The mapping package contains modules for:
+
+-   Product loading
+-   Standard mapping
+-   QCO mapping
+-   Regulatory mapping
+-   Normalization
+-   Confidence handling
+-   Relationship building
+-   Export
+
+### Document Downloader
+
+`download_documents.py` can inspect BIS JSON records, discover document
+references and download referenced documents from the BIS document
+server.
+
+Downloaded documents are accompanied by a manifest containing download
+status and metadata.
+
+------------------------------------------------------------------------
+
+# RAG Pipeline
+
+The main indexing implementation is:
+
+``` text
+RAG/index.py
+```
+
+It performs:
+
+1.  Qdrant connection.
+2.  Collection creation.
+3.  Standard-to-product mapping.
+4.  JSON extraction.
+5.  Structured record enrichment.
+6.  PDF text extraction.
+7.  Chunking.
+8.  Embedding generation.
+9.  Batch vector upload.
+
+Current indexing configuration:
+
+``` text
+Embedding model : all-MiniLM-L6-v2
+Chunk size      : 1000
+Overlap         : 200
+Distance        : COSINE
+Collection      : bis_knowledge
+Qdrant          : http://localhost:6333
+```
+
+Structured records are enriched with metadata. Laboratory and licence
+records are represented differently from large PDF documents.
+
+### Important: machine-specific data path
+
+The current `RAG/index.py` contains:
+
+``` python
+DATA_DIR = Path(r"D:\SIH2026\data_collection_pipeline\data")
+```
+
+After cloning the repository on another computer, update this path to
+the actual dataset location before rebuilding the index.
+
+### Index rebuild warning
+
+The indexer recreates the `bis_knowledge` Qdrant collection. Treat
+`python RAG/index.py` as a rebuild operation rather than a harmless
+incremental update.
+
+------------------------------------------------------------------------
+
+# Retrieval
+
+The primary retrieval implementation is:
+
+``` text
+RAG/chat.py
+```
+
+It provides semantic Qdrant search plus structured laboratory retrieval.
+
+The retrieval layer includes:
+
+-   Query embedding
+-   Similarity search
+-   Product filtering
+-   Metadata filtering
+-   Deduplication
+-   Document compaction
+-   Context construction
+-   Exhaustive laboratory retrieval
+
+Large documents are compacted while small structured laboratory records
+can be preserved more completely.
+
+------------------------------------------------------------------------
+
+# Deterministic Retrieval
+
+A key engineering principle is:
+
+> **Not every question should be answered by an LLM.**
+
+Normal knowledge question:
+
+``` text
+Question
+   ↓
+Semantic Retrieval
+   ↓
+Relevant Context
+   ↓
+LLM
+```
+
+Exhaustive/count/list question:
+
+``` text
+Count/List Question
+        ↓
+Exhaustive Record Retrieval
+        ↓
+Product/Standard Filtering
+        ↓
+Deduplication
+        ↓
+Python Calculation
+        ↓
+Exact Result
+```
+
+This is useful for questions where an LLM should not be trusted to count
+or enumerate records from a small retrieved context.
+
+------------------------------------------------------------------------
+
+# Query Understanding
+
+The main query-understanding module is:
+
+``` text
+jagruk_brain_pipeline/input_processor.py
+```
+
+It acts as a preprocessing layer.
+
+Its responsibilities include:
+
+-   Understanding the user's question
+-   Detecting language
+-   Mapping supported common product names
+-   Identifying intent
+-   Producing retrieval search terms
+-   Creating a dense retrieval query
+-   Preserving the user's language for final response generation
+
+Example:
+
+``` text
+User:
+"Pressure cooker ka BIS standard kya hai?"
+
+        ↓
+
+Language:
+Romanized Hindi / Hinglish
+
+        ↓
+
+Product:
+Domestic Pressure Cooker
+
+        ↓
+
+Intent:
+Standard lookup
+
+        ↓
+
+Retrieval Query:
+Pressure cooker BIS standard specification
+```
+
+------------------------------------------------------------------------
+
+# LangGraph Pipeline
+
+The orchestration entry point is:
+
+``` text
+jagruk_brain_pipeline/main.py
+```
+
+Pipeline state contains values such as:
+
+``` text
+medium
+raw_query
+detected_language
+filtered_query
+final_answer
+```
+
+Conceptually:
+
+``` text
+START
+  │
+  ▼
+Input Medium
+  │
+  ├──────── Text ──────────┐
+  │                        │
+  └──────── Voice ──→ STT ─┘
+                           │
+                           ▼
+                  Query Understanding
+                           │
+                           ▼
+                      RAG Response
+                           │
+                  ┌────────┴────────┐
+                  │                 │
+                 Text             Voice
+                  │                 │
+                  │                TTS
+                  │                 │
+                  └────────┬────────┘
+                           ▼
+                          END
+```
+
+The pipeline can be invoked directly from the Python application and
+through FastAPI.
+
+------------------------------------------------------------------------
+
+# Response Generation
+
+The response layer is:
+
+``` text
+jagruk_brain_pipeline/rag_output_processor.py
+```
+
+It handles:
+
+-   RAG context retrieval
+-   Context compaction
+-   Groq API calls
+-   Final response generation
+-   Target-language response handling
+-   General conversation routing
+-   Context-size management
+
+The Groq client uses the OpenAI-compatible endpoint:
+
+``` text
+https://api.groq.com/openai/v1
+```
+
+------------------------------------------------------------------------
+
+# Voice Architecture
+
+Voice functionality is implemented in:
+
+``` text
+jagruk_brain_pipeline/voice_agent.py
+```
+
+## Web speech-to-text
+
+``` text
+Browser Microphone
+       ↓
+MediaRecorder
+       ↓
+Express /api/transcribe
+       ↓
+FastAPI /transcribe
+       ↓
+Groq Whisper
+       ↓
+Transcript
+       ↓
+Jagruk Brain
+```
+
+## Web text-to-speech
+
+``` text
+Final Answer
+      ↓
+Express /api/speak
+      ↓
+FastAPI /speak
+      ↓
+Patched TTS Client
+      ↓
+edge-tts
+      ↓
+Audio
+      ↓
+Browser
+```
+
+The voice agent also contains terminal microphone capture and speech
+output functions.
+
+------------------------------------------------------------------------
+
+# Web Application
+
+The frontend lives in:
+
+``` text
+sihFrontend/
+```
+
+Main technologies:
+
+-   React 18
+-   Vite
+-   Tailwind CSS
+-   React Router
+-   Framer Motion
+-   Lucide React
+-   React Markdown
+-   remark-gfm
+
+Frontend structure:
+
+``` text
+sihFrontend/
+├── public/
+├── scripts/
+├── server/
+├── src/
+│   ├── components/
+│   ├── context/
+│   ├── pages/
+│   ├── App.jsx
+│   ├── index.css
+│   └── main.jsx
+├── package.json
+├── vite.config.js
+├── tailwind.config.js
+└── index.html
+```
+
+------------------------------------------------------------------------
+
+# Authentication Backend
+
+The Express backend is:
+
+``` text
+sihFrontend/server/
+```
+
+It provides:
+
+-   Signup
+-   Login
+-   Current-user endpoint
+-   JWT authentication
+-   Password hashing
+-   MongoDB persistence
+-   CORS
+-   FastAPI proxy routes
+
+Current authentication endpoints:
+
+``` text
+POST /api/auth/signup
+POST /api/auth/login
+GET  /api/auth/me
+```
+
+Passwords are hashed with bcrypt before being stored.
+
+------------------------------------------------------------------------
+
+# Technology Stack
+
+## Frontend
+
+-   React.js
+-   JavaScript / JSX
+-   HTML5
+-   CSS3
+-   Tailwind CSS
+-   Vite
+-   React Router
+-   Framer Motion
+-   Lucide React
+-   React Markdown
+-   remark-gfm
+
+## Backend
+
+-   Node.js
+-   Express.js
+-   FastAPI
+-   MongoDB
+-   Mongoose
+-   JWT
+-   bcryptjs
+
+## AI / RAG
+
+-   Python
+-   LangGraph
+-   SentenceTransformers
+-   `all-MiniLM-L6-v2`
+-   Qdrant
+-   Groq
+-   GPT-OSS-120B
+-   Whisper
+-   edge-tts
+-   PyPDF
+
+## Data / Infrastructure
+
+-   Python Requests
+-   BIS document server
+-   JSON/PDF processing
+-   Docker
+-   Docker Compose
+-   Git/GitHub
+
+------------------------------------------------------------------------
+
+# Repository Structure
+
+``` text
+SIH2026_Team_jagruk_swadesh/
+│
+├── RAG/
+│   ├── chat.py
+│   ├── index.py
+│   ├── docker_compose.yml
+│   └── __init__.py
+│
+├── data_collection_pipeline/
+│   ├── mapping/
+│   ├── qco/
+│   ├── regulatory/
+│   ├── scraper/
+│   ├── download_documents.py
+│   ├── organize_products.py
+│   └── requirements.txt
+│
+├── jagruk_brain_pipeline/
+│   ├── input_processor.py
+│   ├── main.py
+│   ├── rag_output_processor.py
+│   ├── voice_agent.py
+│   └── __init__.py
+│
+├── sihFrontend/
+│   ├── public/
+│   ├── scripts/
+│   ├── server/
+│   ├── src/
+│   ├── package.json
+│   ├── vite.config.js
+│   └── tailwind.config.js
+│
+├── fastapi_server.py
+├── requirements.txt
+└── README.md
+```
+
+------------------------------------------------------------------------
+
+# Getting Started
+
+## Prerequisites
+
+Install:
+
+-   Python 3.10+
+-   Node.js + npm
+-   Git
+-   Docker Desktop
+-   MongoDB Atlas or local MongoDB
+-   Groq API key
+
+------------------------------------------------------------------------
+
+## 1. Clone
+
+``` powershell
+git clone https://github.com/Om-roy14/SIH2026_Team_jagruk_swadesh.git
+cd SIH2026_Team_jagruk_swadesh
+```
+
+## 2. Python Environment
+
+``` powershell
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+```
+
+Install Python packages:
+
+``` powershell
+pip install -r requirements.txt
+```
+
+------------------------------------------------------------------------
+
+# Environment Variables
+
+## AI / Groq
+
+Create:
+
+``` text
+jagruk_brain_pipeline/.env
+```
+
+``` env
+API_KEY=your_groq_api_key
+```
+
+Never commit the real key.
+
+## Express / MongoDB
+
+Create:
+
+``` text
+sihFrontend/server/.env
+```
+
+Example:
+
+``` env
+MONGODB_URI=your_mongodb_connection_string
+JWT_SECRET=replace_with_a_long_random_secret
+PORT=5000
+CLIENT_URL=http://localhost:5173
+FASTAPI_HOST=127.0.0.1
+FASTAPI_PORT=8000
+```
+
+------------------------------------------------------------------------
+
+# Start Qdrant
+
+The repository provides:
+
+``` text
+RAG/docker_compose.yml
+```
+
+Run:
+
+``` powershell
+cd RAG
+docker compose -f docker_compose.yml up -d
+```
+
+Qdrant:
+
+``` text
+http://localhost:6333
+```
+
+Check:
+
+``` powershell
+docker ps
+```
+
+Stop:
+
+``` powershell
+docker compose -f docker_compose.yml down
+```
+
+------------------------------------------------------------------------
+
+# Build / Rebuild the RAG Index
+
+Ensure your dataset exists and update `DATA_DIR` in `RAG/index.py`.
+
+Then:
+
+``` powershell
+python RAG/index.py
+```
+
+This creates/rebuilds:
+
+``` text
+bis_knowledge
+```
+
+in Qdrant.
+
+------------------------------------------------------------------------
+
+# Install Frontend Dependencies
+
+``` powershell
+cd sihFrontend
+npm install
+```
+
+Install Express dependencies:
+
+``` powershell
+cd server
+npm install
+```
+
+------------------------------------------------------------------------
+
+# Running the Application
+
+## Recommended Windows Method
+
+Run services in separate terminals.
+
+### Terminal 1 --- Qdrant
+
+``` powershell
+cd RAG
+docker compose -f docker_compose.yml up
+```
+
+### Terminal 2 --- FastAPI
+
+From repository root:
+
+``` powershell
+python -m uvicorn fastapi_server:server --host 127.0.0.1 --port 8000 --app-dir .
+```
+
+FastAPI:
+
+``` text
+http://127.0.0.1:8000
+```
+
+### Terminal 3 --- Express
+
+``` powershell
+cd sihFrontend/server
+npm run dev
+```
+
+Express:
+
+``` text
+http://localhost:5000
+```
+
+### Terminal 4 --- React
+
+``` powershell
+cd sihFrontend
+npm run dev:frontend
+```
+
+Vite normally exposes:
+
+``` text
+http://localhost:5173
+```
+
+Use the exact URL printed by Vite.
+
+------------------------------------------------------------------------
+
+# One-command Development Mode
+
+The frontend `package.json` includes:
+
+``` powershell
+cd sihFrontend
+npm run dev
+```
+
+This uses `concurrently` to start:
+
+``` text
+Express
+FastAPI
+Vite
+```
+
+The current script uses Uvicorn reload mode. If reload causes Windows
+process lifecycle problems, use the separate-terminal method above and
+start FastAPI without `--reload`.
+
+------------------------------------------------------------------------
+
+# Local Service Map
+
+  Service      Default URL               Purpose
+  ------------ ------------------------- ----------------------
+  React/Vite   `http://localhost:5173`   Web UI
+  Express      `http://localhost:5000`   Auth/API proxy
+  FastAPI      `http://127.0.0.1:8000`   AI/RAG/STT/TTS
+  Qdrant       `http://localhost:6333`   Vector database
+  MongoDB      Atlas/local               Application database
+
+------------------------------------------------------------------------
+
+# API Reference
+
+## FastAPI
+
+### Health
+
+``` http
+GET /health
+```
+
+### Query
+
+``` http
+POST /query
+Content-Type: application/json
+```
+
+Body:
+
+``` json
+{
+  "query": "What is the BIS standard for a domestic pressure cooker?"
+}
+```
+
+### Transcribe
+
+``` http
+POST /transcribe
+Content-Type: multipart/form-data
+```
+
+Form field:
+
+``` text
+audio=<audio file>
+```
+
+### Speak
+
+``` http
+POST /speak
+Content-Type: application/json
+```
+
+Body:
+
+``` json
+{
+  "text": "Welcome to Jagruk Brain."
+}
+```
+
+------------------------------------------------------------------------
+
+# Express Proxy API
+
+The Express server proxies AI operations to FastAPI:
+
+``` text
+POST /api/query
+      ↓
+FastAPI /query
+
+POST /api/transcribe
+      ↓
+FastAPI /transcribe
+
+POST /api/speak
+      ↓
+FastAPI /speak
+```
+
+Authentication routes:
+
+``` text
+POST /api/auth/signup
+POST /api/auth/login
+GET  /api/auth/me
+```
+
+Health:
+
+``` text
+GET /api/health
+```
+
+------------------------------------------------------------------------
+
+# Testing
+
+## FastAPI health
+
+``` powershell
+Invoke-RestMethod http://127.0.0.1:8000/health
+```
+
+## FastAPI query
+
+``` powershell
+Invoke-RestMethod `
+  -Uri http://127.0.0.1:8000/query `
+  -Method Post `
+  -ContentType "application/json" `
+  -Body '{"query":"What is the BIS standard for a pressure cooker?"}'
+```
+
+## TTS
+
+``` powershell
+python -c "import requests; r=requests.post('http://127.0.0.1:8000/speak', json={'text':'Hello, this is Jagruk Brain.'}); print('STATUS:',r.status_code); print('CONTENT TYPE:',r.headers.get('content-type')); print('SIZE:',len(r.content)); open('test_audio','wb').write(r.content)"
+```
+
+------------------------------------------------------------------------
+
+# Troubleshooting
+
+### Qdrant unavailable
+
+``` powershell
+docker ps
+```
+
+Then:
+
+``` powershell
+docker compose -f RAG/docker_compose.yml up
+```
+
+### FastAPI cannot find the module
+
+Run from the repository root:
+
+``` powershell
+python -m uvicorn fastapi_server:server --host 127.0.0.1 --port 8000 --app-dir .
+```
+
+### FastAPI exits when using concurrent development mode
+
+Run without reload:
+
+``` powershell
+python -m uvicorn fastapi_server:server --host 127.0.0.1 --port 8000 --app-dir .
+```
+
+### Missing Groq key
+
+Verify:
+
+``` text
+jagruk_brain_pipeline/.env
+```
+
+contains:
+
+``` env
+API_KEY=your_groq_api_key
+```
+
+### MongoDB connection failure
+
+Check:
+
+``` text
+MONGODB_URI
+JWT_SECRET
+```
+
+and confirm MongoDB Atlas network access if using Atlas.
+
+### RAG returns poor/no results
+
+Check:
+
+1.  Qdrant is running.
+2.  `bis_knowledge` exists.
+3.  Dataset exists.
+4.  `DATA_DIR` is correct.
+5.  `RAG/index.py` completed successfully.
+6.  `all-MiniLM-L6-v2` can be loaded.
+
+------------------------------------------------------------------------
+
+# Security
+
+Do not commit:
+
+``` text
+API keys
+MongoDB credentials
+JWT secrets
+.env files
+Private credentials
+```
+
+Recommended local environment files:
+
+``` text
+jagruk_brain_pipeline/.env
+sihFrontend/server/.env
+```
+
+The repository should be reviewed for secrets before public submission.
+
+------------------------------------------------------------------------
+
+# Design Principles
+
+### 1. Evidence before generation
+
+Retrieve relevant BIS information before asking the LLM to formulate an
+answer.
+
+### 2. Product-aware retrieval
+
+Avoid treating loosely related products as identical.
+
+### 3. Deterministic processing where appropriate
+
+Counts, lists and exhaustive record queries can be handled through
+deterministic retrieval and Python processing.
+
+### 4. Language-aware responses
+
+The user's language is preserved through the response-generation stage.
+
+### 5. Modular architecture
+
+Collection, mapping, indexing, retrieval, query understanding, response
+generation, voice, backend and frontend are separated.
+
+### 6. UI + AI separation
+
+React provides the user experience while FastAPI exposes AI capabilities
+and Express provides authentication and proxying.
+
+------------------------------------------------------------------------
+
+# Future Scope
+
+Possible extensions include:
+
+-   Broader BIS product coverage
+-   More standards and product manuals
+-   More Indian languages
+-   Improved multilingual speech recognition
+-   Improved multilingual TTS
+-   Continuous BIS data refresh
+-   Stronger evidence/citation display
+-   Advanced compliance workflows
+-   Manufacturer and laboratory search
+-   Production observability
+-   Cloud-native scaling
+-   Role-based access control
+-   Automated RAG evaluation
+-   Better model/evidence confidence reporting
+
+------------------------------------------------------------------------
+
+# Current Repository Notes
+
+This README documents the implementation currently present in the
+repository.
+
+Important reproduction notes:
+
+1.  `RAG/index.py` contains a Windows-specific dataset path that must be
+    changed on another machine.
+2.  API credentials are not included.
+3.  MongoDB requires a user-provided connection string.
+4.  Qdrant must be running and populated before useful RAG queries can
+    be answered.
+5.  Running the indexer rebuilds the Qdrant collection.
+6.  The concurrent frontend command uses Uvicorn reload mode; separate
+    services are recommended on Windows if reload causes lifecycle
+    issues.
+7.  The repository does not currently provide one production deployment
+    manifest covering every service.
+
+------------------------------------------------------------------------
+
+# Project Summary
+
+Jagruk Brain combines:
+
+``` text
+BIS Data
+   +
+Data Collection
+   +
+Product / Standard Mapping
+   +
+PDF / JSON Processing
+   +
+Sentence Embeddings
+   +
+Qdrant Vector Search
+   +
+Query Understanding
+   +
+LangGraph
+   +
+Groq LLM
+   +
+Whisper STT
+   +
+edge-tts
+   +
+React Web UI
+   +
+Express Authentication
+   +
+MongoDB
+```
+
+into one conversational platform.
+
+The central objective is:
+
+> **Make BIS knowledge easier to discover, understand and interact with
+> through conversational AI.**
+
+------------------------------------------------------------------------
+
+# Team
+
+**Team Jagruk Swadesh --- SIH 2026**
+
+Repository:
+
+https://github.com/Om-roy14/SIH2026_Team_jagruk_swadesh
+
+------------------------------------------------------------------------
+
+# License
+
+No explicit open-source license is currently documented in the
+repository. Add an appropriate `LICENSE` file before presenting the
+project as an open-source project under a specific license.
+
+------------------------------------------------------------------------
+
+## ⭐ Jagruk Brain
+
+**From complex BIS knowledge to a conversational experience.**
