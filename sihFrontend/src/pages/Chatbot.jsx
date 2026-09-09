@@ -111,7 +111,7 @@ export default function Chatbot() {
     return null;
   }
 
-  const handleSend = async (queryToSend) => {
+  const handleSend = async (queryToSend, isVoice = false) => {
     const text = queryToSend || inputQuery;
     if (!text.trim() || isLoading) return;
 
@@ -149,6 +149,11 @@ export default function Chatbot() {
           sources: Array.isArray(data.sources) ? data.sources : [],
         };
         setMessages((prev) => [...prev, botMsg]);
+        
+        // Auto-play the response aloud
+        setTimeout(() => {
+          playTTS(botMsgId, cleanTextForSpeech(botMsg.answer));
+        }, 300);
       }
     } catch (err) {
       const botMsgId = Date.now() + 1;
@@ -283,7 +288,7 @@ export default function Chatbot() {
 
       // Populate input, then auto-send after state commits
       setInputQuery(transcript);
-      setTimeout(() => handleSend(transcript), 50);
+      setTimeout(() => handleSend(transcript, true), 50);
     } catch {
       setVoiceError('Could not reach the transcription server. Please ensure both servers are running.');
     } finally {
@@ -316,42 +321,31 @@ export default function Chatbot() {
     abortControllerRef.current = new AbortController();
 
     try {
-      const res = await fetch('/api/speak', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text }),
-        signal: abortControllerRef.current.signal,
-      });
-
-      if (!res.ok) {
-        throw new Error('TTS failed');
-      }
-
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
+      const url = `/api/speak?text=${encodeURIComponent(text)}`;
       
-      const audio = new Audio(url);
+      const audio = new Audio();
       audioRef.current = audio;
 
       audio.onended = () => {
         setIsSpeaking(false);
         setActiveAudioId(null);
-        URL.revokeObjectURL(url);
       };
 
-      audio.onerror = () => {
+      audio.onerror = (e) => {
+        console.error('[TTS] Audio playback error:', e);
         setVoiceError('Could not play the audio response.');
         setIsSpeaking(false);
         setActiveAudioId(null);
-        URL.revokeObjectURL(url);
       };
 
+      audio.src = url;
       await audio.play();
     } catch (err) {
       if (err.name === 'AbortError') {
-        // User clicked stop before fetch finished; ignore quietly.
+        // User clicked stop
         return;
       }
+      console.error('[TTS] Error:', err);
       setVoiceError('Could not generate speech response.');
       setIsSpeaking(false);
       setActiveAudioId(null);
