@@ -58,7 +58,6 @@ async def transcribe_audio(audio: UploadFile = File(...)):
             model="whisper-large-v3",
             file=(filename, audio_bytes, content_type),
             response_format="text",
-            language="en",           
         )
         # Groq returns a plain string when response_format="text"
         transcript_text = transcription if isinstance(transcription, str) else transcription.text
