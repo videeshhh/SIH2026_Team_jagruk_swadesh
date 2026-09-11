@@ -385,7 +385,7 @@ export default function Chatbot() {
       {/* Full-viewport column — no page scroll, chat fills remaining height */}
       <div className="flex flex-col flex-1 min-h-0 pt-28 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto w-full gap-4 pb-4">
 
-        {/* TOP BAR / HEADER */}
+        {/* TOP BAR / HEADER
         <div className="liquid-glass-panel p-4 sm:p-5 border-saffron/40 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shrink-0">
           <div className="flex items-center space-x-3.5">
             <div className="w-12 h-12 rounded-2xl bg-saffron/20 border border-saffron/40 flex items-center justify-center text-saffron shrink-0">
@@ -421,7 +421,7 @@ export default function Chatbot() {
               <span>{user?.name || 'Authenticated User'}</span>
             </div>
           </div>
-        </div>
+        </div> */}
 
         {/* CHAT MAIN PANEL — flex-1 min-h-0 fills all remaining space */}
         <div className="liquid-glass-panel border-white/15 flex-1 min-h-0 flex flex-col overflow-hidden relative shadow-2xl">
@@ -432,16 +432,16 @@ export default function Chatbot() {
             {/* EMPTY STATE */}
             {messages.length === 0 && (
               <div className="h-full flex flex-col items-center justify-center text-center max-w-lg mx-auto space-y-4">
-                <div className="w-16 h-16 rounded-2xl bg-amber-400/20 border border-amber-400/50 flex items-center justify-center text-amber-300 shadow-lg">
+                {/* <div className="w-16 h-16 rounded-2xl bg-amber-400/20 border border-amber-400/50 flex items-center justify-center text-amber-300 shadow-lg">
                   <Sparkles className="w-8 h-8" />
-                </div>
+                </div> */}
                 <div className="space-y-2">
                   <h2 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
                     Ask about Indian Standards & BIS
                   </h2>
-                  <p className="text-xs sm:text-sm text-ivory-muted font-medium leading-relaxed">
+                  {/* <p className="text-xs sm:text-sm text-ivory-muted font-medium leading-relaxed">
                     Type any query about Indian Standards, ISI mark compliance, product certification, or testing requirements.
-                  </p>
+                  </p> */}
                 </div>
               </div>
             )}
@@ -674,9 +674,9 @@ export default function Chatbot() {
             <div className="flex flex-col sm:flex-row items-center justify-between px-1 pt-2.5 text-[10px] text-ivory-dim font-semibold gap-1">
               <span className="flex items-center space-x-1.5">
                 <ShieldCheck className="w-3.5 h-3.5 text-saffron" />
-                <span>Verified Bureau of Indian Standards Context • Source-Grounded AI</span>
+                <span>Verified Bureau of Indian Standards Context • Source-BIS WEBSITE</span>
               </span>
-              <span>Jagruk Swadesh Demo Engine</span>
+              {/* <span>Jagruk Swadesh Demo Engine</span> */}
             </div>
           </div>
 

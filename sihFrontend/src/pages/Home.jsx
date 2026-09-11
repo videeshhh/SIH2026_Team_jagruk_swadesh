@@ -118,7 +118,7 @@ export default function Home({ onOpenChatbotModal }) {
             >
               {/* Eyebrow Label Tag (Reference Inspired) */}
               <div className="inline-flex items-center space-x-2 px-3.5 py-1.5 rounded-full bg-forest-deep/80 border border-white/15 text-ivory-dim text-xs font-medium tracking-wide">
-                <span className="text-emerald-400 font-bold">+</span>
+                {/* <span className="text-emerald-400 font-bold"></span> */}
                 <span className="uppercase tracking-widest text-[11px] font-semibold text-ivory-muted">
                   BIS • COMPLIANCE • INTELLIGENCE
                 </span>
@@ -127,7 +127,7 @@ export default function Home({ onOpenChatbotModal }) {
               {/* Two-Tone Display Heading (Reference Inspired) */}
               <h1 className="text-5xl sm:text-6xl lg:text-7xl font-extrabold tracking-tight leading-[1.08] text-white drop-shadow-[0_2px_10px_rgba(0,0,0,0.5)]">
                 Understand <span className="text-saffron-light">Indian</span> <br />
-                <span className="text-[#204028] sm:text-[#1c3a23] font-extrabold drop-shadow-sm">
+                <span className="text-[#467a55] sm:text-[#] font-extrabold drop-shadow-sm">
                   Standards easily.
                 </span>
               </h1>
@@ -172,10 +172,10 @@ export default function Home({ onOpenChatbotModal }) {
               <div className="liquid-glass-panel p-6 sm:p-7 space-y-5 border-white/15 relative">
                 
                 {/* Panel Top Header */}
-                <div className="flex items-center justify-between pb-3 border-b border-white/10 text-xs font-semibold text-ivory-dim tracking-wider uppercase">
+                <div className="flex items-center justify-between pb-3 border-b border-white/10 text-xs font-semibold text-white tracking-wider uppercase">
                   <span>JAGRUK SWADESH</span>
                   <div className="flex items-center space-x-1.5 text-emerald-400">
-                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />  
                     <span className="text-[10px]">LIVE</span>
                   </div>
                 </div>
@@ -185,7 +185,7 @@ export default function Home({ onOpenChatbotModal }) {
                   <h3 className="text-2xl font-bold text-white tracking-tight">
                     Indian Standards Today
                   </h3>
-                  <p className="text-xs text-ivory-dim font-medium">
+                  <p className="text-xs text-white font-medium">
                     Integrated knowledge ecosystem for BIS services.
                   </p>
                 </div>

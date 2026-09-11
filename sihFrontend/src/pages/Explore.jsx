@@ -87,13 +87,13 @@ export default function Explore({ onOpenChatbotModal }) {
         {/* Explore Hero Header */}
         <section className="px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto text-center space-y-6">
           <SectionHeading
-            tag="KNOWLEDGE BASE"
+            // tag="KNOWLEDGE BASE"
             title="Explore BIS Services"
             subtitle="Discover information across major Bureau of Indian Standards domains."
           />
 
           {/* Reference Matched Capsule Filter Tabs */}
-          <div className="flex flex-wrap items-center justify-center gap-2 max-w-4xl mx-auto pt-2">
+          <div className="flex flex-wrap items-center justify-center gap-2 max-w-4xl mx-auto pt-4 pb-4">
             {[
               { id: 'all', label: 'All Services' },
               { id: 'standards', label: 'Indian Standards' },
@@ -104,7 +104,7 @@ export default function Explore({ onOpenChatbotModal }) {
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`px-4.5 py-2 text-xs sm:text-sm font-semibold rounded-full transition-all duration-200 ${
+                className={`px-6 py-2 text-xs sm:text-sm font-semibold rounded-full transition-all duration-200 ${
                   activeTab === tab.id
                     ? 'btn-pill-primary text-white shadow-md'
                     : 'btn-pill-secondary text-ivory-muted hover:text-white'
